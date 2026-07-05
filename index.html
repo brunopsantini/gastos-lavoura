@@ -26,18 +26,18 @@
     padding-bottom: 40px;
   }
   header {
-    padding: 14px 16px 6px;
+    padding: 8px 16px 4px;
     text-align: center;
   }
   header img {
-    height: 64px;
+    height: 36px;
     display: block;
     margin: 0 auto;
   }
   header .tagline {
-    font-size: 13px;
+    font-size: 12px;
     color: var(--muted);
-    margin-top: 2px;
+    margin-top: 1px;
   }
   .summary {
     display: flex;
@@ -213,18 +213,67 @@
     padding: 30px 10px;
     font-size: 14px;
   }
-  .toolbar {
+  .secondary-actions {
     display: flex;
-    justify-content: center;
-    gap: 16px;
-    margin: 18px 16px 0;
+    gap: 8px;
+    margin-top: 8px;
   }
-  .toolbar button {
+  .secondary-actions button {
+    flex: 1;
+    padding: 10px;
+    border-radius: 10px;
+    border: 1.5px solid #ddd;
+    background: #fff;
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .relatorios-panel {
+    display: none;
+    margin: 0 16px 14px;
+    background: var(--card);
+    border-radius: 16px;
+    padding: 14px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+  }
+  .relatorios-panel.show { display: block; }
+  .relatorios-panel h2 {
+    font-size: 15px;
+    margin: 0 0 10px;
+  }
+  .relatorios-panel table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .relatorios-panel td {
+    padding: 5px 2px;
+    border-bottom: 1px solid #eee;
+  }
+  .relatorios-panel td.num {
+    text-align: right;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .relatorios-panel .total-geral {
+    display: flex;
+    justify-content: space-between;
+    font-size: 15px;
+    font-weight: 700;
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 2px solid #ddd;
+  }
+  .relatorios-panel .export-link {
+    display: block;
+    text-align: center;
+    margin-top: 12px;
+    font-size: 13px;
+    color: var(--muted);
+    text-decoration: underline;
     background: none;
     border: none;
-    color: var(--muted);
-    font-size: 13px;
-    text-decoration: underline;
+    width: 100%;
   }
 </style>
 </head>
@@ -267,14 +316,16 @@
   </div>
 
   <button class="save-btn" id="salvar" disabled>Salvar</button>
+
+  <div class="secondary-actions">
+    <button id="btn-relatorios">📊 Relatórios</button>
+    <button id="btn-limpar">🗑️ Limpar</button>
+  </div>
 </div>
+
+<div class="relatorios-panel" id="relatorios-panel"></div>
 
 <div class="history" id="history"></div>
-
-<div class="toolbar">
-  <button id="export">Exportar CSV</button>
-  <button id="limpar">Apagar tudo</button>
-</div>
 
 <script>
 (function () {
@@ -533,8 +584,8 @@
     renderHistoricoETotais();
   });
 
-  // ---------- Exportar / Limpar ----------
-  document.getElementById("export").addEventListener("click", function () {
+  // ---------- Exportar ----------
+  function exportarCSV() {
     var linhas = ["data,valor,categoria,subcategoria,descricao"];
     gastos.forEach(function (g) {
       var dataFmt = new Date(g.data).toLocaleDateString("pt-BR");
@@ -547,13 +598,55 @@
     a.download = "gastos-lavoura.csv";
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  // ---------- Relatorios ----------
+  var elRelatorios = document.getElementById("relatorios-panel");
+
+  function renderRelatorios() {
+    var hoje = new Date();
+    var mesKey = mesAtualKey(hoje);
+    var porSub = {};
+    var totalGeral = 0;
+
+    gastos.forEach(function (g) {
+      if (mesAtualKey(g.data) !== mesKey) return;
+      var chave = NOMES_CAT[g.categoria] + (g.subcategoria ? " · " + g.subcategoria : "");
+      porSub[chave] = (porSub[chave] || 0) + g.valor;
+      totalGeral += g.valor;
+    });
+
+    var linhas = Object.keys(porSub).sort(function (a, b) { return porSub[b] - porSub[a]; });
+
+    var html = "<h2>Relatório do mês</h2>";
+    if (linhas.length === 0) {
+      html += '<div class="empty" style="padding:10px 0;">Nenhum gasto neste mês ainda.</div>';
+    } else {
+      html += "<table>";
+      linhas.forEach(function (chave) {
+        html += "<tr><td>" + chave + "</td><td class='num'>" + formatarMoeda(porSub[chave]) + "</td></tr>";
+      });
+      html += "</table>";
+      html += '<div class="total-geral"><span>Total</span><span>' + formatarMoeda(totalGeral) + "</span></div>";
+    }
+    html += '<button class="export-link" id="btn-export-csv">Exportar CSV</button>';
+    elRelatorios.innerHTML = html;
+
+    document.getElementById("btn-export-csv").addEventListener("click", exportarCSV);
+  }
+
+  document.getElementById("btn-relatorios").addEventListener("click", function () {
+    var abrindo = !elRelatorios.classList.contains("show");
+    if (abrindo) renderRelatorios();
+    elRelatorios.classList.toggle("show", abrindo);
   });
 
-  document.getElementById("limpar").addEventListener("click", function () {
+  document.getElementById("btn-limpar").addEventListener("click", function () {
     if (!confirm("Apagar todos os gastos salvos neste aparelho?")) return;
     gastos = [];
     salvarStorage();
     renderHistoricoETotais();
+    if (elRelatorios.classList.contains("show")) renderRelatorios();
   });
 
   renderHistoricoETotais();
