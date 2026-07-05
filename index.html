@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Gastos Lavoura</title>
+<style>
+  :root {
+    --lavoura: #2e7d32;
+    --pessoal: #1565c0;
+    --hobby: #6a1b9a;
+    --bg: #f4f4f2;
+    --card: #ffffff;
+    --text: #1c1c1c;
+    --muted: #767676;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding-bottom: 40px;
+  }
+  header {
+    padding: 18px 16px 10px;
+    text-align: center;
+  }
+  header h1 {
+    font-size: 20px;
+    margin: 0;
+  }
+  .summary {
+    display: flex;
+    gap: 8px;
+    padding: 0 16px;
+    margin-bottom: 14px;
+  }
+  .summary .card {
+    flex: 1;
+    background: var(--card);
+    border-radius: 12px;
+    padding: 10px 8px;
+    text-align: center;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .summary .card .label { font-size: 11px; color: var(--muted); }
+  .summary .card .value { font-size: 15px; font-weight: 700; margin-top: 2px; }
+  .lavoura-color { color: var(--lavoura); }
+  .pessoal-color { color: var(--pessoal); }
+  .hobby-color { color: var(--hobby); }
+
+  .entry-box {
+    margin: 0 16px 14px;
+    background: var(--card);
+    border-radius: 16px;
+    padding: 14px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+  }
+  .input-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  #texto {
+    flex: 1;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    padding: 12px;
+    font-size: 17px;
+    outline: none;
+  }
+  #texto:focus { border-color: var(--lavoura); }
+  #mic {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    border: none;
+    background: #eee;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+  #mic.listening {
+    background: #ffcdd2;
+    animation: pulse 1s infinite;
+  }
+  @keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+  }
+  .preview {
+    display: none;
+    margin-top: 12px;
+    padding: 12px;
+    border-radius: 12px;
+    background: #f7f7f5;
+  }
+  .preview.show { display: block; }
+  .preview .valor {
+    font-size: 22px;
+    font-weight: 700;
+  }
+  .chips {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+  }
+  .chip {
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 13px;
+    border: 1.5px solid transparent;
+    background: #eee;
+    color: #444;
+  }
+  .chip.active.lavoura { background: var(--lavoura); color: #fff; }
+  .chip.active.pessoal { background: var(--pessoal); color: #fff; }
+  .chip.active.hobby { background: var(--hobby); color: #fff; }
+  .sub-chips {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+    flex-wrap: wrap;
+  }
+  .sub-chip {
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    background: #e2e2e2;
+    color: #555;
+  }
+  .sub-chip.active { background: #333; color: #fff; }
+  .save-btn {
+    width: 100%;
+    margin-top: 12px;
+    padding: 14px;
+    border: none;
+    border-radius: 12px;
+    background: var(--lavoura);
+    color: #fff;
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .save-btn:disabled { background: #bbb; }
+
+  .history {
+    margin: 0 16px;
+  }
+  .day-group {
+    margin-bottom: 14px;
+  }
+  .day-label {
+    font-size: 12px;
+    color: var(--muted);
+    margin: 10px 0 6px 4px;
+    text-transform: uppercase;
+  }
+  .item {
+    display: flex;
+    align-items: center;
+    background: var(--card);
+    border-radius: 12px;
+    padding: 10px 12px;
+    margin-bottom: 6px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  .item .badge {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 10px;
+    flex-shrink: 0;
+  }
+  .item .info { flex: 1; min-width: 0; }
+  .item .desc {
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .item .cat {
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .item .valor {
+    font-weight: 700;
+    font-size: 15px;
+    margin-left: 8px;
+    white-space: nowrap;
+  }
+  .item .del {
+    margin-left: 10px;
+    background: none;
+    border: none;
+    color: #bbb;
+    font-size: 18px;
+    padding: 4px 6px;
+  }
+  .empty {
+    text-align: center;
+    color: var(--muted);
+    padding: 30px 10px;
+    font-size: 14px;
+  }
+  .toolbar {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    margin: 18px 16px 0;
+  }
+  .toolbar button {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 13px;
+    text-decoration: underline;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🌱 Gastos Lavoura</h1>
+</header>
+
+<div class="summary">
+  <div class="card">
+    <div class="label">Lavoura</div>
+    <div class="value lavoura-color" id="total-lavoura">R$ 0</div>
+  </div>
+  <div class="card">
+    <div class="label">Pessoal</div>
+    <div class="value pessoal-color" id="total-pessoal">R$ 0</div>
+  </div>
+  <div class="card">
+    <div class="label">Hobby</div>
+    <div class="value hobby-color" id="total-hobby">R$ 0</div>
+  </div>
+</div>
+
+<div class="entry-box">
+  <div class="input-row">
+    <input id="texto" type="text" inputmode="text" placeholder="Ex: 45 diesel" autocomplete="off">
+    <button id="mic" title="Falar">🎤</button>
+  </div>
+
+  <div class="preview" id="preview">
+    <div class="valor" id="preview-valor">R$ 0,00</div>
+    <div class="chips" id="chips-categoria">
+      <div class="chip" data-cat="lavoura">Lavoura</div>
+      <div class="chip" data-cat="pessoal">Pessoal</div>
+      <div class="chip" data-cat="hobby">Hobby</div>
+    </div>
+    <div class="sub-chips" id="chips-sub"></div>
+  </div>
+
+  <button class="save-btn" id="salvar" disabled>Salvar</button>
+</div>
+
+<div class="history" id="history"></div>
+
+<div class="toolbar">
+  <button id="export">Exportar CSV</button>
+  <button id="limpar">Apagar tudo</button>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var SUBCATEGORIAS = {
+    lavoura: {
+      "combustivel": ["diesel", "gasolina", "oleo diesel", "gasool", "combustivel"],
+      "insumos": ["adubo", "fertilizante", "semente", "sementes", "veneno", "agrotoxico", "defensivo"],
+      "manutencao": ["parafuso", "parafusos", "peca", "pecas", "correia", "oleo", "conserto", "manutencao"]
+    },
+    pessoal: {
+      "mercado": ["mercado", "supermercado"],
+      "farmacia": ["farmacia", "remedio", "remedios"],
+      "roupas": ["roupa", "roupas", "calcado", "calcados"]
+    },
+    hobby: {
+      "geral": []
+    }
+  };
+
+  var CORES = { lavoura: "#2e7d32", pessoal: "#1565c0", hobby: "#6a1b9a" };
+  var NOMES_CAT = { lavoura: "Lavoura", pessoal: "Pessoal", hobby: "Hobby" };
+
+  function normalizar(s) {
+    return s.toLowerCase()
+      .normalize("NFD").replace(/[̀-ͯ]/g, "");
+  }
+
+  function extrairValor(texto) {
+    var m = texto.replace(",", ".").match(/\d+(\.\d{1,2})?/);
+    return m ? parseFloat(m[0]) : null;
+  }
+
+  function adivinharCategoria(textoNorm) {
+    var categorias = ["lavoura", "pessoal", "hobby"];
+    for (var i = 0; i < categorias.length; i++) {
+      var cat = categorias[i];
+      var subs = SUBCATEGORIAS[cat];
+      for (var sub in subs) {
+        var palavras = subs[sub];
+        for (var j = 0; j < palavras.length; j++) {
+          if (textoNorm.indexOf(palavras[j]) !== -1) {
+            return { categoria: cat, subcategoria: sub };
+          }
+        }
+      }
+    }
+    return { categoria: "pessoal", subcategoria: null };
+  }
+
+  // ---------- Estado ----------
+  var STORAGE_KEY = "gastos_lavoura_v1";
+  var gastos = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+  var atual = null; // { valor, categoria, subcategoria, texto }
+
+  function salvarStorage() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(gastos));
+  }
+
+  function formatarMoeda(v) {
+    return "R$ " + v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  // ---------- Elementos ----------
+  var elTexto = document.getElementById("texto");
+  var elMic = document.getElementById("mic");
+  var elPreview = document.getElementById("preview");
+  var elPreviewValor = document.getElementById("preview-valor");
+  var elChipsCat = document.getElementById("chips-categoria");
+  var elChipsSub = document.getElementById("chips-sub");
+  var elSalvar = document.getElementById("salvar");
+  var elHistory = document.getElementById("history");
+
+  function renderSubchips() {
+    elChipsSub.innerHTML = "";
+    if (!atual) return;
+    var subs = SUBCATEGORIAS[atual.categoria];
+    var nomes = Object.keys(subs).filter(function (s) { return s !== "geral"; });
+    nomes.forEach(function (nome) {
+      var chip = document.createElement("div");
+      chip.className = "sub-chip" + (atual.subcategoria === nome ? " active" : "");
+      chip.textContent = nome;
+      chip.addEventListener("click", function () {
+        atual.subcategoria = nome;
+        renderSubchips();
+      });
+      elChipsSub.appendChild(chip);
+    });
+  }
+
+  function renderCatChips() {
+    Array.prototype.forEach.call(elChipsCat.children, function (chip) {
+      var cat = chip.getAttribute("data-cat");
+      chip.className = "chip" + (atual && atual.categoria === cat ? " active " + cat : "");
+    });
+  }
+
+  function atualizarPreview() {
+    var texto = elTexto.value.trim();
+    var valor = extrairValor(texto);
+    if (!texto || valor === null) {
+      atual = null;
+      elPreview.classList.remove("show");
+      elSalvar.disabled = true;
+      return;
+    }
+    var guess = adivinharCategoria(normalizar(texto));
+    if (!atual || atual.texto !== texto) {
+      atual = { valor: valor, categoria: guess.categoria, subcategoria: guess.subcategoria, texto: texto };
+    } else {
+      atual.valor = valor;
+      atual.texto = texto;
+    }
+    elPreviewValor.textContent = formatarMoeda(valor);
+    elPreview.classList.add("show");
+    elSalvar.disabled = false;
+    renderCatChips();
+    renderSubchips();
+  }
+
+  elTexto.addEventListener("input", atualizarPreview);
+
+  elChipsCat.addEventListener("click", function (e) {
+    var chip = e.target.closest(".chip");
+    if (!chip || !atual) return;
+    atual.categoria = chip.getAttribute("data-cat");
+    var subs = Object.keys(SUBCATEGORIAS[atual.categoria]).filter(function (s) { return s !== "geral"; });
+    atual.subcategoria = subs.length ? subs[0] : null;
+    renderCatChips();
+    renderSubchips();
+  });
+
+  elSalvar.addEventListener("click", function () {
+    if (!atual) return;
+    gastos.unshift({
+      id: Date.now(),
+      valor: atual.valor,
+      categoria: atual.categoria,
+      subcategoria: atual.subcategoria,
+      texto: atual.texto,
+      data: new Date().toISOString()
+    });
+    salvarStorage();
+    elTexto.value = "";
+    atual = null;
+    elPreview.classList.remove("show");
+    elSalvar.disabled = true;
+    renderHistoricoETotais();
+    elTexto.focus();
+  });
+
+  elTexto.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && !elSalvar.disabled) elSalvar.click();
+  });
+
+  // ---------- Voz ----------
+  var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (SpeechRecognition) {
+    var recognizer = new SpeechRecognition();
+    recognizer.lang = "pt-BR";
+    recognizer.interimResults = false;
+    recognizer.maxAlternatives = 1;
+
+    recognizer.addEventListener("result", function (e) {
+      var texto = e.results[0][0].transcript;
+      elTexto.value = texto;
+      atualizarPreview();
+    });
+    recognizer.addEventListener("end", function () {
+      elMic.classList.remove("listening");
+    });
+    recognizer.addEventListener("error", function () {
+      elMic.classList.remove("listening");
+    });
+
+    elMic.addEventListener("click", function () {
+      elMic.classList.add("listening");
+      recognizer.start();
+    });
+  } else {
+    elMic.title = "Use o microfone do teclado para ditar";
+  }
+
+  // ---------- Historico e totais ----------
+  function mesAtualKey(d) {
+    var dt = new Date(d);
+    return dt.getFullYear() + "-" + dt.getMonth();
+  }
+
+  function renderHistoricoETotais() {
+    var hoje = new Date();
+    var mesKey = mesAtualKey(hoje);
+    var totais = { lavoura: 0, pessoal: 0, hobby: 0 };
+
+    gastos.forEach(function (g) {
+      if (mesAtualKey(g.data) === mesKey) {
+        totais[g.categoria] += g.valor;
+      }
+    });
+
+    document.getElementById("total-lavoura").textContent = formatarMoeda(totais.lavoura);
+    document.getElementById("total-pessoal").textContent = formatarMoeda(totais.pessoal);
+    document.getElementById("total-hobby").textContent = formatarMoeda(totais.hobby);
+
+    if (gastos.length === 0) {
+      elHistory.innerHTML = '<div class="empty">Nenhum gasto anotado ainda.</div>';
+      return;
+    }
+
+    var grupos = {};
+    var ordemDias = [];
+    gastos.forEach(function (g) {
+      var d = new Date(g.data);
+      var chave = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+      if (!grupos[chave]) {
+        grupos[chave] = [];
+        ordemDias.push(chave);
+      }
+      grupos[chave].push(g);
+    });
+
+    var html = "";
+    ordemDias.forEach(function (dia) {
+      html += '<div class="day-group"><div class="day-label">' + dia + '</div>';
+      grupos[dia].forEach(function (g) {
+        var sub = g.subcategoria ? (" · " + g.subcategoria) : "";
+        html += '<div class="item">' +
+          '<div class="badge" style="background:' + CORES[g.categoria] + '"></div>' +
+          '<div class="info">' +
+            '<div class="desc">' + escapeHtml(g.texto) + '</div>' +
+            '<div class="cat">' + NOMES_CAT[g.categoria] + sub + '</div>' +
+          '</div>' +
+          '<div class="valor">' + formatarMoeda(g.valor) + '</div>' +
+          '<button class="del" data-id="' + g.id + '">×</button>' +
+        '</div>';
+      });
+      html += "</div>";
+    });
+    elHistory.innerHTML = html;
+  }
+
+  function escapeHtml(s) {
+    var div = document.createElement("div");
+    div.textContent = s;
+    return div.innerHTML;
+  }
+
+  elHistory.addEventListener("click", function (e) {
+    var btn = e.target.closest(".del");
+    if (!btn) return;
+    var id = Number(btn.getAttribute("data-id"));
+    gastos = gastos.filter(function (g) { return g.id !== id; });
+    salvarStorage();
+    renderHistoricoETotais();
+  });
+
+  // ---------- Exportar / Limpar ----------
+  document.getElementById("export").addEventListener("click", function () {
+    var linhas = ["data,valor,categoria,subcategoria,descricao"];
+    gastos.forEach(function (g) {
+      var dataFmt = new Date(g.data).toLocaleDateString("pt-BR");
+      linhas.push([dataFmt, g.valor.toFixed(2), g.categoria, g.subcategoria || "", '"' + g.texto.replace(/"/g, '""') + '"'].join(","));
+    });
+    var blob = new Blob([linhas.join("\n")], { type: "text/csv;charset=utf-8;" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = "gastos-lavoura.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  document.getElementById("limpar").addEventListener("click", function () {
+    if (!confirm("Apagar todos os gastos salvos neste aparelho?")) return;
+    gastos = [];
+    salvarStorage();
+    renderHistoricoETotais();
+  });
+
+  renderHistoricoETotais();
+})();
+</script>
+</body>
+</html>
