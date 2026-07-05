@@ -398,8 +398,33 @@
   }
 
   function extrairValor(texto) {
-    var m = texto.replace(",", ".").match(/\d+(\.\d{1,2})?/);
-    return m ? parseFloat(m[0]) : null;
+    var m = texto.match(/\d[\d.,]*\d|\d/);
+    if (!m) return null;
+    var token = m[0];
+    var lastComma = token.lastIndexOf(",");
+    var lastDot = token.lastIndexOf(".");
+    var valor;
+
+    if (lastComma > lastDot) {
+      // virgula decimal (padrao BR); pontos anteriores sao separador de milhar
+      var intPart = token.slice(0, lastComma).split(".").join("");
+      var decPart = token.slice(lastComma + 1);
+      valor = parseFloat(intPart + "." + decPart);
+    } else if (lastDot > lastComma) {
+      var casasDepoisDoPonto = token.length - lastDot - 1;
+      if (casasDepoisDoPonto === 3) {
+        // ponto de milhar (ex: 15.000), sem decimais
+        valor = parseFloat(token.split(".").join(""));
+      } else {
+        // ponto decimal (ex: 15.5 ou 15.50); pontos anteriores sao milhar
+        var intPart2 = token.slice(0, lastDot).split(".").join("");
+        var decPart2 = token.slice(lastDot + 1);
+        valor = parseFloat(intPart2 + "." + decPart2);
+      }
+    } else {
+      valor = parseFloat(token);
+    }
+    return isNaN(valor) ? null : valor;
   }
 
   function adivinharCategoria(textoNorm) {
