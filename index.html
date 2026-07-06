@@ -185,6 +185,29 @@
     color: #555;
   }
   .sub-chip.active { background: #333; color: #fff; }
+  .chip-pai {
+    margin-top: 8px;
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 13px;
+    border: 1.5px solid #ddd;
+    background: #fff;
+    color: #444;
+  }
+  .chip-pai.active {
+    background: #8d6e63;
+    border-color: #8d6e63;
+    color: #fff;
+  }
+  .pai-badge {
+    font-size: 11px;
+    background: #efebe9;
+    color: #6d4c41;
+    padding: 1px 6px;
+    border-radius: 999px;
+    margin-left: 6px;
+  }
   .save-btn {
     width: 100%;
     margin-top: 12px;
@@ -359,6 +382,7 @@
       <div class="chip" data-cat="hobby">Hobby</div>
     </div>
     <div class="sub-chips" id="chips-sub"></div>
+    <div class="chip-pai" id="chip-pai">👨 Pai</div>
   </div>
 
   <button class="save-btn" id="salvar" disabled>Salvar</button>
@@ -471,6 +495,15 @@
   var elChipsSub = document.getElementById("chips-sub");
   var elSalvar = document.getElementById("salvar");
   var elHistory = document.getElementById("history");
+  var elChipPai = document.getElementById("chip-pai");
+
+  function detectarPai(textoNorm) {
+    return /\bpai\b/.test(textoNorm);
+  }
+
+  function renderChipPai() {
+    elChipPai.classList.toggle("active", !!(atual && atual.pai));
+  }
 
   function renderSubchips() {
     elChipsSub.innerHTML = "";
@@ -506,9 +539,10 @@
       elSalvar.disabled = true;
       return;
     }
-    var guess = adivinharCategoria(normalizar(texto));
+    var textoNorm = normalizar(texto);
+    var guess = adivinharCategoria(textoNorm);
     if (!atual || atual.texto !== texto) {
-      atual = { valor: valor, categoria: guess.categoria, subcategoria: guess.subcategoria, texto: texto };
+      atual = { valor: valor, categoria: guess.categoria, subcategoria: guess.subcategoria, texto: texto, pai: detectarPai(textoNorm) };
     } else {
       atual.valor = valor;
       atual.texto = texto;
@@ -518,7 +552,14 @@
     elSalvar.disabled = false;
     renderCatChips();
     renderSubchips();
+    renderChipPai();
   }
+
+  elChipPai.addEventListener("click", function () {
+    if (!atual) return;
+    atual.pai = !atual.pai;
+    renderChipPai();
+  });
 
   elTexto.addEventListener("input", atualizarPreview);
 
@@ -550,6 +591,7 @@
       categoria: atual.categoria,
       subcategoria: atual.subcategoria,
       texto: atual.texto,
+      pai: !!atual.pai,
       data: new Date().toISOString()
     });
     salvarStorage();
@@ -649,11 +691,12 @@
       html += '<div class="day-group"><div class="day-label">' + dia + '</div>';
       grupos[dia].forEach(function (g) {
         var sub = g.subcategoria ? (" · " + g.subcategoria) : "";
+        var selosPai = g.pai ? '<span class="pai-badge">👨 Pai</span>' : "";
         html += '<div class="item">' +
           '<div class="badge" style="background:' + CORES[g.categoria] + '"></div>' +
           '<div class="info">' +
             '<div class="desc">' + escapeHtml(g.texto) + '</div>' +
-            '<div class="cat">' + NOMES_CAT[g.categoria] + sub + '</div>' +
+            '<div class="cat">' + NOMES_CAT[g.categoria] + sub + selosPai + '</div>' +
           '</div>' +
           '<div class="valor">' + formatarMoeda(g.valor) + '</div>' +
           '<button class="del" data-id="' + g.id + '">×</button>' +
@@ -681,10 +724,10 @@
 
   // ---------- Exportar ----------
   function exportarCSV() {
-    var linhas = ["data,valor,categoria,subcategoria,descricao"];
+    var linhas = ["data,valor,categoria,subcategoria,pai,descricao"];
     gastos.forEach(function (g) {
       var dataFmt = new Date(g.data).toLocaleDateString("pt-BR");
-      linhas.push([dataFmt, g.valor.toFixed(2), g.categoria, g.subcategoria || "", '"' + g.texto.replace(/"/g, '""') + '"'].join(","));
+      linhas.push([dataFmt, g.valor.toFixed(2), g.categoria, g.subcategoria || "", g.pai ? "sim" : "nao", '"' + g.texto.replace(/"/g, '""') + '"'].join(","));
     });
     var blob = new Blob([linhas.join("\n")], { type: "text/csv;charset=utf-8;" });
     var url = URL.createObjectURL(blob);
@@ -703,12 +746,14 @@
     var mesKey = mesAtualKey(hoje);
     var porSub = {};
     var totalGeral = 0;
+    var totalPai = 0;
 
     gastos.forEach(function (g) {
       if (mesAtualKey(g.data) !== mesKey) return;
       var chave = NOMES_CAT[g.categoria] + (g.subcategoria ? " · " + g.subcategoria : "");
       porSub[chave] = (porSub[chave] || 0) + g.valor;
       totalGeral += g.valor;
+      if (g.pai) totalPai += g.valor;
     });
 
     var linhas = Object.keys(porSub).sort(function (a, b) { return porSub[b] - porSub[a]; });
@@ -723,6 +768,9 @@
       });
       html += "</table>";
       html += '<div class="total-geral"><span>Total</span><span>' + formatarMoeda(totalGeral) + "</span></div>";
+      if (totalPai > 0) {
+        html += '<div class="total-geral"><span>👨 Gastos com o Pai</span><span>' + formatarMoeda(totalPai) + "</span></div>";
+      }
     }
     html += '<button class="export-link" id="btn-export-csv">Exportar CSV</button>';
     elRelatorios.innerHTML = html;

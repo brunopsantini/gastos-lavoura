@@ -1,4 +1,4 @@
-var CACHE_NAME = "grao-a-grao-v1";
+var CACHE_NAME = "grao-a-grao-v2";
 var ASSETS = [
   "./",
   "./index.html",
