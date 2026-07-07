@@ -553,6 +553,14 @@
   }
 
   function extrairValor(texto) {
+    var mCentavos = texto.match(/(\d[\d.]*)\s*com\s*(\d{1,2})\s*(?:centavos)?\b/i) ||
+      texto.match(/(\d[\d.]*)\s*e\s*(\d{1,2})\s*centavos\b/i);
+    if (mCentavos) {
+      var reaisStr = mCentavos[1].split(".").join("");
+      var valorCentavos = parseFloat(reaisStr + "." + mCentavos[2]);
+      if (!isNaN(valorCentavos)) return valorCentavos;
+    }
+
     var m = texto.match(/\d[\d.,]*\d|\d/);
     if (!m) return null;
     var token = m[0];
