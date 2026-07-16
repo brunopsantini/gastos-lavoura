@@ -220,6 +220,30 @@
     font-weight: 700;
   }
   .save-btn:disabled { background: #bbb; }
+  .save-btn.editando { background: #1565c0; }
+  .cancelar-edicao {
+    display: none;
+    width: 100%;
+    margin-top: 8px;
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 13px;
+    text-decoration: underline;
+    padding: 4px 0;
+  }
+  .cancelar-edicao.show { display: block; }
+  .item.editando-atual {
+    outline: 2px solid #1565c0;
+  }
+  .item .editar {
+    margin-left: 6px;
+    background: none;
+    border: none;
+    color: #bbb;
+    font-size: 15px;
+    padding: 4px 6px;
+  }
 
   .history {
     margin: 0 16px;
@@ -500,6 +524,7 @@
   </div>
 
   <button class="save-btn" id="salvar" disabled>Salvar</button>
+  <button class="cancelar-edicao" id="btn-cancelar-edicao" type="button">Cancelar edição</button>
 
   <div class="secondary-actions">
     <button id="btn-relatorios">📊 Relatórios</button>
@@ -611,6 +636,7 @@
   var STORAGE_KEY = "gastos_lavoura_v1";
   var gastos = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
   var atual = null; // { valor, categoria, subcategoria, texto }
+  var editandoId = null;
 
   function salvarStorage() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(gastos));
@@ -717,22 +743,82 @@
     renderSubchips();
   });
 
-  elSalvar.addEventListener("click", function () {
-    if (!atual) return;
-    gastos.unshift({
-      id: Date.now(),
-      valor: atual.valor,
-      categoria: atual.categoria,
-      subcategoria: atual.subcategoria,
-      texto: atual.texto,
-      pai: !!atual.pai,
-      data: new Date().toISOString()
-    });
-    salvarStorage();
+  var elBtnCancelarEdicao = document.getElementById("btn-cancelar-edicao");
+
+  function sairModoEdicao() {
+    editandoId = null;
+    elSalvar.classList.remove("editando");
+    elSalvar.textContent = "Salvar";
+    elBtnCancelarEdicao.classList.remove("show");
+  }
+
+  function iniciarEdicao(gasto) {
+    editandoId = gasto.id;
+    elTexto.value = gasto.texto;
+    atual = {
+      valor: gasto.valor,
+      categoria: gasto.categoria,
+      subcategoria: gasto.subcategoria,
+      texto: gasto.texto,
+      pai: !!gasto.pai
+    };
+    elBtnClear.classList.toggle("show", true);
+    elPreviewValor.textContent = formatarMoeda(gasto.valor);
+    elPreview.classList.add("show");
+    elSalvar.disabled = false;
+    elSalvar.classList.add("editando");
+    elSalvar.textContent = "Salvar edição";
+    elBtnCancelarEdicao.classList.add("show");
+    renderCatChips();
+    renderSubchips();
+    renderChipPai();
+    renderHistoricoETotais();
+    elTexto.focus();
+    elTexto.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  elBtnCancelarEdicao.addEventListener("click", function () {
+    sairModoEdicao();
     elTexto.value = "";
     atual = null;
     elPreview.classList.remove("show");
     elSalvar.disabled = true;
+    elBtnClear.classList.remove("show");
+    renderHistoricoETotais();
+  });
+
+  elSalvar.addEventListener("click", function () {
+    if (!atual) return;
+
+    if (editandoId !== null) {
+      var idx = gastos.findIndex(function (g) { return g.id === editandoId; });
+      if (idx !== -1) {
+        gastos[idx].valor = atual.valor;
+        gastos[idx].categoria = atual.categoria;
+        gastos[idx].subcategoria = atual.subcategoria;
+        gastos[idx].texto = atual.texto;
+        gastos[idx].pai = !!atual.pai;
+      }
+      salvarStorage();
+      sairModoEdicao();
+    } else {
+      gastos.unshift({
+        id: Date.now(),
+        valor: atual.valor,
+        categoria: atual.categoria,
+        subcategoria: atual.subcategoria,
+        texto: atual.texto,
+        pai: !!atual.pai,
+        data: new Date().toISOString()
+      });
+      salvarStorage();
+    }
+
+    elTexto.value = "";
+    atual = null;
+    elPreview.classList.remove("show");
+    elSalvar.disabled = true;
+    elBtnClear.classList.remove("show");
     renderHistoricoETotais();
     elTexto.focus();
   });
@@ -1000,13 +1086,14 @@
       grupos[dia].forEach(function (g) {
         var sub = g.subcategoria ? (" · " + g.subcategoria) : "";
         var selosPai = g.pai ? '<span class="pai-badge">👨 Pai</span>' : "";
-        html += '<div class="item">' +
+        html += '<div class="item' + (editandoId === g.id ? " editando-atual" : "") + '">' +
           '<div class="badge" style="background:' + CORES[g.categoria] + '"></div>' +
           '<div class="info">' +
             '<div class="desc">' + escapeHtml(g.texto) + '</div>' +
             '<div class="cat">' + NOMES_CAT[g.categoria] + sub + selosPai + '</div>' +
           '</div>' +
           '<div class="valor">' + formatarMoeda(g.valor) + '</div>' +
+          '<button class="editar" data-id="' + g.id + '" title="Editar">✎</button>' +
           '<button class="del" data-id="' + g.id + '">×</button>' +
         '</div>';
       });
@@ -1022,9 +1109,25 @@
   }
 
   elHistory.addEventListener("click", function (e) {
+    var btnEditar = e.target.closest(".editar");
+    if (btnEditar) {
+      var idEditar = Number(btnEditar.getAttribute("data-id"));
+      var gasto = gastos.find(function (g) { return g.id === idEditar; });
+      if (gasto) iniciarEdicao(gasto);
+      return;
+    }
+
     var btn = e.target.closest(".del");
     if (!btn) return;
     var id = Number(btn.getAttribute("data-id"));
+    if (editandoId === id) {
+      sairModoEdicao();
+      elTexto.value = "";
+      atual = null;
+      elPreview.classList.remove("show");
+      elSalvar.disabled = true;
+      elBtnClear.classList.remove("show");
+    }
     gastos = gastos.filter(function (g) { return g.id !== id; });
     salvarStorage();
     renderHistoricoETotais();
