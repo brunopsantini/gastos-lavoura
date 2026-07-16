@@ -629,7 +629,9 @@
         }
       }
     }
-    return { categoria: "pessoal", subcategoria: null };
+    if (textoNorm.indexOf("pessoal") !== -1) return { categoria: "pessoal", subcategoria: null };
+    if (textoNorm.indexOf("hobb") !== -1) return { categoria: "hobby", subcategoria: null };
+    return { categoria: "lavoura", subcategoria: null };
   }
 
   // ---------- Estado ----------
